@@ -16,9 +16,14 @@ describe("EduQuitz with module", function () {
             }
         });
 
-        // Role constants
         const TEACHER_ROLE = stringToHex("TEACHER_ROLE", { size: 32 });
         const STUDENT_ROLE = stringToHex("STUDENT_ROLE", { size: 32 });
+
+        // Setup teacher role by default
+        await eduQuitzContract.eduQuitz.write.setUserRole([
+            TEACHER_ROLE, 
+            getAddress(teacher.account.address)
+        ]);
 
         return { 
             eduQuitzContract, 
@@ -189,7 +194,7 @@ describe("EduQuitz with module", function () {
             ]);
 
             const startTime = BigInt(Math.floor(Date.now() / 1000) + 3600);
-            const endTime = startTime + BigInt(7200);
+            const endTime = startTime + BigInt(1);
             const entryFee = parseEther('0.01');
 
             // Create quiz (using teacher account)
@@ -206,7 +211,6 @@ describe("EduQuitz with module", function () {
             };
 
             await createQuiz();
-
             // Students join quiz
             for (const student of [student1, student2]) {
                 const { request } = await pubClient.simulateContract({
@@ -220,11 +224,11 @@ describe("EduQuitz with module", function () {
                 await student.writeContract(request);
             }
 
-            // Fast forward time (simulate quiz end)
-            await hre.network.provider.send("evm_setNextBlockTimestamp", [Number(endTime)]);
+            // Wait until quiz ends
+            await hre.network.provider.send("evm_increaseTime", [3700]); // Increase time by more than startTime + 1
             await hre.network.provider.send("evm_mine");
 
-            // End quiz and distribute prize (using teacher account)
+            // End quiz and distribute prize
             const endQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
                     address: getAddress(eduQuitzContract.eduQuitz.address),
@@ -259,17 +263,25 @@ describe("EduQuitz with module", function () {
                 getAddress(teacher.account.address)
             ]);
 
-            const startTime = BigInt(Math.floor(Date.now() / 1000) + 3600);
-            const endTime = startTime + BigInt(7200);
+            // Set start time far enough in future
+            const startTime = BigInt(Math.floor(Date.now() / 1000) + 7200); // 2 hours from now
+            const endTime = startTime + BigInt(7200);    // 4 hours from now
             const entryFee = parseEther('0.01');
 
             // Create quiz
-            await eduQuitzContract.eduQuitz.write.createQuiz([
-                "Cancellation Test Quiz", 
-                entryFee, 
-                startTime, 
-                endTime
-            ], { value: parseEther('0.0001') });
+            const createQuiz = async () => {
+                const { request } = await pubClient.simulateContract({
+                    address: getAddress(eduQuitzContract.eduQuitz.address),
+                    abi: eduQuitzContract.eduQuitz.abi,
+                    functionName: 'createQuiz',
+                    account: getAddress(teacher.account.address),
+                    args: ["Cancellation Test Quiz", entryFee, startTime, endTime],
+                    value: parseEther('0.0001')
+                });
+                await teacher.writeContract(request);
+            };
+
+            await createQuiz();
 
             // Student joins
             const joinQuiz = async () => {
@@ -428,18 +440,7 @@ describe("EduQuitz with module", function () {
 
     describe("Edge Cases", function () {
         it("should prevent joining quiz after end time", async function () {
-            const { 
-                eduQuitzContract, 
-                teacher, 
-                student1, 
-                pubClient, 
-                TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
-
-            await eduQuitzContract.eduQuitz.write.setUserRole([
-                TEACHER_ROLE, 
-                getAddress(teacher.account.address)
-            ]);
+            const { eduQuitzContract, student1, pubClient } = await deployEduQuitzModuleFixture();
 
             const startTime = BigInt(Math.floor(Date.now() / 1000) + 3600);
             const endTime = startTime + BigInt(7200);
@@ -450,7 +451,6 @@ describe("EduQuitz with module", function () {
                 startTime, 
                 endTime
             ], { value: parseEther('0.0001') });
-
 
             try {
                 const { request } = await pubClient.simulateContract({
@@ -465,6 +465,23 @@ describe("EduQuitz with module", function () {
             } catch (error: any) {
                 expect(error.message).include(['Quiz has ended']);
             }
+        });
+    });
+
+    describe("Additional Role Management", function () {
+        it("should revoke user role", async function () {
+            const { eduQuitzContract, teacher, TEACHER_ROLE } = await deployEduQuitzModuleFixture();
+
+            await eduQuitzContract.eduQuitz.write.revokeUserRole([
+                TEACHER_ROLE, 
+                getAddress(teacher.account.address)
+            ]);
+
+            const hasRole = await eduQuitzContract.eduQuitz.read.hasRole([
+                TEACHER_ROLE, 
+                getAddress(teacher.account.address)
+            ]);
+            expect(hasRole).to.be.false;
         });
     });
 }); 

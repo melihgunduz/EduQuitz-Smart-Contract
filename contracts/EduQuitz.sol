@@ -225,8 +225,9 @@ contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
         emit QuizJoined(_quizId, msg.sender);
     }
 
-    function endQuiz(uint256 _quizId, address _winner) public onlyRole(TEACHER_ROLE) nonReentrant {
+    function endQuiz(uint256 _quizId, address _winner) public nonReentrant {
         Quiz storage quiz = quizzes[_quizId];
+        require(msg.sender == quiz.creatorAddress, "Not authorized user");
         require(quiz.isActive, "Quiz not active");
         require(block.timestamp >= quiz.endTime, "Quiz not ended yet");
         require(quiz.participants[_winner], "Winner must be participant");
@@ -283,7 +284,7 @@ contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
 
     function cancelQuiz(uint256 _quizId) public nonReentrant {
         Quiz storage quiz = quizzes[_quizId];
-        require(msg.sender == quiz.creatorAddress || hasRole(TEACHER_ROLE, msg.sender), "Not authorized");
+        require(msg.sender == quiz.creatorAddress, "Not authorized user");
         require(quiz.isActive, "Quiz not active");
         require(block.timestamp < quiz.startTime, "Quiz already started");
 

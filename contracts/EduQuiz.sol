@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity >=0.8.20 <0.9.0;
+pragma solidity 0.8.28;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -9,7 +9,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 
 
-contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
+contract EduQuiz is AccessControl, Ownable, Pausable, ReentrancyGuard {
     uint256 private quizCounter;
 
     constructor(address initialOwner) Ownable(initialOwner){
@@ -116,12 +116,7 @@ contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
         return courses[_id];
     }
 
-    function enrollCourse(uint256 _courseId) public payable nonReentrant whenNotPaused {
-        require(msg.value == courses[_courseId].price, "Insufficient amount to enroll course.");
-        // Add course to user's courses
-        // Add user to course's students
-    }
-
+    
     function createEvent(string memory _name, uint256 _price, uint256 _eventDate) public nonReentrant whenNotPaused {
         lastEventId++;
         events[lastEventId] = Event({
@@ -191,7 +186,6 @@ contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
         uint256 _endTime
     ) public payable nonReentrant whenNotPaused {
         require(_endTime > _startTime, "End time must be after start time");
-        require(msg.value == createGameFee, "Incorrect creation fee");
 
         uint256 quizId = quizCounter;
         quizCounter++;
@@ -214,7 +208,6 @@ contract EduQuitz is AccessControl, Ownable, Pausable, ReentrancyGuard {
         require(quiz.isActive, "Quiz is not active");
         require(block.timestamp < quiz.endTime, "Quiz has ended");
         require(!quiz.participants[msg.sender], "Already joined");
-        require(msg.value == quiz.entryFee, "Incorrect entry fee");
 
         quiz.participants[msg.sender] = true;
         quiz.participantCount++;

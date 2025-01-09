@@ -1,16 +1,16 @@
 import { expect } from "chai";
 import hre from "hardhat";
 import { getAddress, parseEther, stringToHex } from "viem";
-import EduQuitzModule from "../ignition/modules/EduQuitz";
+import EduQuizModule from "../ignition/modules/EduQuiz";
 
-describe("EduQuitz with module", function () {
-    async function deployEduQuitzModuleFixture() {
+describe("EduQuiz with module", function () {
+    async function deployEduQuizModuleFixture() {
         const [owner, teacher, student1, student2] = await hre.viem.getWalletClients();
         const pubClient = await hre.viem.getPublicClient();
         
-        const eduQuitzContract = await hre.ignition.deploy(EduQuitzModule, {
+        const eduQuizContract = await hre.ignition.deploy(EduQuizModule, {
             parameters: {
-                EduQuitzModule: {
+                EduQuizModule: {
                     initialOwner: getAddress(owner.account.address)
                 }
             }
@@ -20,13 +20,15 @@ describe("EduQuitz with module", function () {
         const STUDENT_ROLE = stringToHex("STUDENT_ROLE", { size: 32 });
 
         // Setup teacher role by default
-        await eduQuitzContract.eduQuitz.write.setUserRole([
+    
+        
+        await eduQuizContract.EduQuiz.write.setUserRole([
             TEACHER_ROLE, 
             getAddress(teacher.account.address)
         ]);
 
         return { 
-            eduQuitzContract, 
+            eduQuizContract, 
             owner, 
             teacher, 
             student1, 
@@ -38,17 +40,17 @@ describe("EduQuitz with module", function () {
     }
 
     it("should be deployed with ignition", async function () {
-        const { eduQuitzContract, owner } = await deployEduQuitzModuleFixture();
-        expect(await eduQuitzContract.eduQuitz.read.owner()).to.equal(getAddress(owner.account.address));
+        const { eduQuizContract, owner } = await deployEduQuizModuleFixture();
+        expect(await eduQuizContract.EduQuiz.read.owner()).to.equal(getAddress(owner.account.address));
     });
 
     describe("Role Management", function () {
         it("should grant teacher role", async function () {
-            const { eduQuitzContract, owner, teacher, TEACHER_ROLE } = await deployEduQuitzModuleFixture();
+            const { eduQuizContract, owner, teacher, TEACHER_ROLE } = await deployEduQuizModuleFixture();
 
-            await eduQuitzContract.eduQuitz.write.setUserRole([TEACHER_ROLE, getAddress(teacher.account.address)]);
+            await eduQuizContract.EduQuiz.write.setUserRole([TEACHER_ROLE, getAddress(teacher.account.address)]);
             
-            const hasRole = await eduQuitzContract.eduQuitz.read.hasRole([
+            const hasRole = await eduQuizContract.EduQuiz.read.hasRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
@@ -57,17 +59,17 @@ describe("EduQuitz with module", function () {
 
         it("should fail when non-owner tries to grant role", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 student1, 
                 TEACHER_ROLE,
                 pubClient 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
             try {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'setUserRole',
                     account: getAddress(student1.account.address),
                     args: [TEACHER_ROLE, getAddress(teacher.account.address)]
@@ -83,14 +85,14 @@ describe("EduQuitz with module", function () {
     describe("Quiz Management", function () {
         it("should create quiz with correct parameters", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 pubClient, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
             // Grant teacher role
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
@@ -100,8 +102,8 @@ describe("EduQuitz with module", function () {
 
             const createQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'createQuiz',
                     account: getAddress(teacher.account.address),
                     args: ["Test Quiz", parseEther('0.01'), startTime, endTime],
@@ -113,22 +115,22 @@ describe("EduQuitz with module", function () {
 
             await createQuiz();
 
-            const quizDetails = await eduQuitzContract.eduQuitz.read.getQuizDetails([0n]);
+            const quizDetails = await eduQuizContract.EduQuiz.read.getQuizDetails([0n]);
             expect(quizDetails[1]).to.equal("Test Quiz"); // name
             expect(quizDetails[6]).to.be.true; // isActive
         });
 
         it("should allow students to join quiz", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 student1, 
                 pubClient, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
             // Grant teacher role
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
@@ -138,7 +140,7 @@ describe("EduQuitz with module", function () {
             const endTime = startTime + BigInt(7200);
             const entryFee = parseEther('0.01');
 
-            await eduQuitzContract.eduQuitz.write.createQuiz([
+            await eduQuizContract.EduQuiz.write.createQuiz([
                 "Test Quiz", 
                 entryFee, 
                 startTime, 
@@ -148,8 +150,8 @@ describe("EduQuitz with module", function () {
             // Join quiz
             const joinQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'joinQuiz',
                     account: getAddress(student1.account.address),
                     args: [0n],
@@ -161,7 +163,7 @@ describe("EduQuitz with module", function () {
 
             await joinQuiz();
 
-            const quizDetails = await eduQuitzContract.eduQuitz.read.getQuizDetails([0n]);
+            const quizDetails = await eduQuizContract.EduQuiz.read.getQuizDetails([0n]);
             expect(quizDetails[8]).to.equal(1n); // participantCount
         });
     });
@@ -169,7 +171,7 @@ describe("EduQuitz with module", function () {
     describe("Quiz Completion and Prize Distribution", function () {
         it("should distribute prize to winner correctly", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 owner, 
                 teacher, 
                 student1, 
@@ -177,18 +179,18 @@ describe("EduQuitz with module", function () {
                 pubClient, 
                 STUDENT_ROLE,
                 TEACHER_ROLE
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
             // Grant roles using owner account
-            await eduQuitzContract.eduQuitz.write.grantRole([
+            await eduQuizContract.EduQuiz.write.grantRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
-            await eduQuitzContract.eduQuitz.write.grantRole([
+            await eduQuizContract.EduQuiz.write.grantRole([
                 STUDENT_ROLE, 
                 getAddress(student1.account.address)
             ]);
-            await eduQuitzContract.eduQuitz.write.grantRole([
+            await eduQuizContract.EduQuiz.write.grantRole([
                 STUDENT_ROLE, 
                 getAddress(student2.account.address)
             ]);
@@ -200,8 +202,8 @@ describe("EduQuitz with module", function () {
             // Create quiz (using teacher account)
             const createQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'createQuiz',
                     account: getAddress(teacher.account.address),
                     args: ["Prize Test Quiz", entryFee, startTime, endTime],
@@ -214,8 +216,8 @@ describe("EduQuitz with module", function () {
             // Students join quiz
             for (const student of [student1, student2]) {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'joinQuiz',
                     account: getAddress(student.account.address),
                     args: [0n],
@@ -231,8 +233,8 @@ describe("EduQuitz with module", function () {
             // End quiz and distribute prize
             const endQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'endQuiz',
                     account: getAddress(teacher.account.address),
                     args: [0n, getAddress(student1.account.address)]
@@ -242,7 +244,7 @@ describe("EduQuitz with module", function () {
 
             await endQuiz();
 
-            const quizDetails = await eduQuitzContract.eduQuitz.read.getQuizDetails([0n]);
+            const quizDetails = await eduQuizContract.EduQuiz.read.getQuizDetails([0n]);
             expect(quizDetails[7]).to.equal(getAddress(student1.account.address)); // winner
             expect(quizDetails[6]).to.be.false; // isActive should be false
         });
@@ -251,14 +253,14 @@ describe("EduQuitz with module", function () {
     describe("Quiz Cancellation", function () {
         it("should cancel quiz and refund participants", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 student1, 
                 pubClient, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
@@ -271,8 +273,8 @@ describe("EduQuitz with module", function () {
             // Create quiz
             const createQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'createQuiz',
                     account: getAddress(teacher.account.address),
                     args: ["Cancellation Test Quiz", entryFee, startTime, endTime],
@@ -286,8 +288,8 @@ describe("EduQuitz with module", function () {
             // Student joins
             const joinQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'joinQuiz',
                     account: getAddress(student1.account.address),
                     args: [0n],
@@ -301,8 +303,8 @@ describe("EduQuitz with module", function () {
             // Cancel quiz
             const cancelQuiz = async () => {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'cancelQuiz',
                     account: getAddress(teacher.account.address),
                     args: [0n]
@@ -312,7 +314,7 @@ describe("EduQuitz with module", function () {
 
             await cancelQuiz();
 
-            const quizDetails = await eduQuitzContract.eduQuitz.read.getQuizDetails([0n]);
+            const quizDetails = await eduQuizContract.EduQuiz.read.getQuizDetails([0n]);
             expect(quizDetails[6]).to.be.false; // isActive
         });
     });
@@ -320,18 +322,18 @@ describe("EduQuitz with module", function () {
     describe("Course Management", function () {
         it("should create and retrieve course", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
 
             const createCourse = async () => {
-                await eduQuitzContract.eduQuitz.write.createCourse([
+                await eduQuizContract.EduQuiz.write.createCourse([
                     "Test Course",
                     parseEther('0.1')
                 ]);
@@ -339,7 +341,7 @@ describe("EduQuitz with module", function () {
 
             await createCourse();
 
-            const course = await eduQuitzContract.eduQuitz.read.getCourse([1n]);
+            const course = await eduQuizContract.EduQuiz.read.getCourse([1n]);
             expect(course.name).to.equal("Test Course");
             expect(course.price).to.equal(parseEther('0.1'));
         });
@@ -348,12 +350,12 @@ describe("EduQuitz with module", function () {
     describe("Event Management", function () {
         it("should create and retrieve event", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 teacher, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
@@ -361,7 +363,7 @@ describe("EduQuitz with module", function () {
             const eventDate = BigInt(Math.floor(Date.now() / 1000) + 86400); // 24 hours from now
 
             const createEvent = async () => {
-                await eduQuitzContract.eduQuitz.write.createEvent([
+                await eduQuizContract.EduQuiz.write.createEvent([
                     "Test Event",
                     parseEther('0.05'),
                     eventDate
@@ -370,7 +372,7 @@ describe("EduQuitz with module", function () {
 
             await createEvent();
 
-            const event = await eduQuitzContract.eduQuitz.read.getEvent([1n]);
+            const event = await eduQuizContract.EduQuiz.read.getEvent([1n]);
             expect(event.name).to.equal("Test Event");
             expect(event.price).to.equal(parseEther('0.05'));
             expect(event.eventStartDate).to.equal(eventDate);
@@ -380,24 +382,24 @@ describe("EduQuitz with module", function () {
     describe("Security Features", function () {
         it("should pause and unpause contract", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 owner, 
                 teacher, 
                 TEACHER_ROLE 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
 
-            await eduQuitzContract.eduQuitz.write.setUserRole([
+            await eduQuizContract.EduQuiz.write.setUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
 
             // Pause contract
-            await eduQuitzContract.eduQuitz.write.pause();
+            await eduQuizContract.EduQuiz.write.pause();
 
             // Try to create course while paused
             try {
-                await eduQuitzContract.eduQuitz.write.createCourse([
+                await eduQuizContract.EduQuiz.write.createCourse([
                     "Test Course",
                     parseEther('0.1')
                 ]);
@@ -406,9 +408,9 @@ describe("EduQuitz with module", function () {
             }
 
             // Unpause contract
-            await eduQuitzContract.eduQuitz.write.unpause();
+            await eduQuizContract.EduQuiz.write.unpause();
             
-            await eduQuitzContract.eduQuitz.write.createCourse([
+            await eduQuizContract.EduQuiz.write.createCourse([
                 "Test Course",
                 parseEther('0.1')
             ]);
@@ -416,17 +418,17 @@ describe("EduQuitz with module", function () {
 
         it("should prevent unauthorized role assignments", async function () {
             const { 
-                eduQuitzContract, 
+                eduQuizContract, 
                 student1, 
                 student2, 
                 TEACHER_ROLE,
                 pubClient 
-            } = await deployEduQuitzModuleFixture();
+            } = await deployEduQuizModuleFixture();
 
             try {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'setUserRole',
                     account: getAddress(student1.account.address),
                     args: [TEACHER_ROLE, getAddress(student2.account.address)]
@@ -440,12 +442,12 @@ describe("EduQuitz with module", function () {
 
     describe("Edge Cases", function () {
         it("should prevent joining quiz after end time", async function () {
-            const { eduQuitzContract, student1, pubClient } = await deployEduQuitzModuleFixture();
+            const { eduQuizContract, student1, pubClient } = await deployEduQuizModuleFixture();
 
             const startTime = BigInt(Math.floor(Date.now() / 1000) + 3600);
             const endTime = startTime + BigInt(7200);
 
-            await eduQuitzContract.eduQuitz.write.createQuiz([
+            await eduQuizContract.EduQuiz.write.createQuiz([
                 "Late Join Test", 
                 parseEther('0.01'), 
                 startTime, 
@@ -454,8 +456,8 @@ describe("EduQuitz with module", function () {
 
             try {
                 const { request } = await pubClient.simulateContract({
-                    address: getAddress(eduQuitzContract.eduQuitz.address),
-                    abi: eduQuitzContract.eduQuitz.abi,
+                    address: getAddress(eduQuizContract.EduQuiz.address),
+                    abi: eduQuizContract.EduQuiz.abi,
                     functionName: 'joinQuiz',
                     account: getAddress(student1.account.address),
                     args: [0n],
@@ -470,14 +472,14 @@ describe("EduQuitz with module", function () {
 
     describe("Additional Role Management", function () {
         it("should revoke user role", async function () {
-            const { eduQuitzContract, teacher, TEACHER_ROLE } = await deployEduQuitzModuleFixture();
+            const { eduQuizContract, teacher, TEACHER_ROLE } = await deployEduQuizModuleFixture();
 
-            await eduQuitzContract.eduQuitz.write.revokeUserRole([
+            await eduQuizContract.EduQuiz.write.revokeUserRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
 
-            const hasRole = await eduQuitzContract.eduQuitz.read.hasRole([
+            const hasRole = await eduQuizContract.EduQuiz.read.hasRole([
                 TEACHER_ROLE, 
                 getAddress(teacher.account.address)
             ]);
